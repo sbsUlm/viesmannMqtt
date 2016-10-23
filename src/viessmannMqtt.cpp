@@ -1,3 +1,4 @@
+#ifdef ESP8266
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
@@ -37,13 +38,6 @@ void onMqttData(char* topic, byte* payload, unsigned int length) {
 #endif
 }
 
-void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(115200);
-  setup_wifi();
-  client.setServer(mqtt_server, 1883);
-  client.setCallback(onMqttData);
-}
 
 
 
@@ -105,6 +99,23 @@ void heartbeat()
 }
 
 int inputStringPos = 0;
+
+int switchToMode6()
+{
+  Serial.print("0x04");
+  int aRet=0;
+  while( aRet!=0x05)
+  {
+   size_t len = Serial.available();
+   if (len>0)
+   {
+     if (len>BUFFER_SIZE)
+      len=BUFFER_SIZE;
+     int aBytesRead = Serial.readBytes(&aSerialBuffer[inputStringPos], len);
+   }
+  }
+}
+
 void serialRead()
 {
   size_t len = Serial.available();
@@ -121,6 +132,15 @@ void serialRead()
   }
 }
 
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(115200);
+  setup_wifi();
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(onMqttData);
+}
+
+int mode = -1;
 void loop() {
   if (!client.connected()) {
     reconnect();
@@ -128,5 +148,11 @@ void loop() {
   client.loop();
   heartbeat();
   serialRead();
-  ESP.deepSleep(SLEEP_TIME * 1000000);
 }
+
+
+#else
+#ifndef UNIT_TEST
+int main (int argc, char* argv[]) {};
+#endif
+#endif

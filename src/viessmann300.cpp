@@ -19,6 +19,13 @@ Datapoint::Datapoint(std::string theName,
     {
       smDatapoints[mAdress] = this;
       memset(mLastValue,0,MAX_VALUE_LENGTH);
+      printf("Datapoints: %d",smDatapoints.size());
+    }
+
+    Datapoint::~Datapoint()
+    {
+      smDatapoints.erase(mAdress);
+      printf("######Datapoint removed");
     }
 
     int  Datapoint::dispatchData(const char* theBuffer,
@@ -88,7 +95,7 @@ Datapoint::Datapoint(std::string theName,
        return *((short*)mLastValue);
     };
 
-    int Datapoint::createReadRequest(char* theBuffer)
+    int Datapoint::createReadRequest(char* theBuffer) const
     {
       unsigned int aPos=0;
       theBuffer[aPos++] = START_BYTE;

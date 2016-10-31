@@ -34,20 +34,25 @@ typedef char byte;
               int theMaxValue,
               AddressT theAdress);
 
-
-      int createReadRequest(char* theBuffer);
+      ~Datapoint();
+      
+      int createReadRequest(char* theBuffer) const;
 
       static int dispatchData(const char* theBuffer,
                               const unsigned int theLen,
                               Datapoint*& theDatapoint);
 
       void setName(std::string theName) {this->mName=theName;};
+      const std::string getName() const {return this->mName;};
 
-      const unsigned int getLength() {return mLength;};
+      const unsigned int getLength() const {return mLength;};
 
       void setValue(const char* theDst, byte theLen);
 
       const unsigned short getValueAsShort();
+
+      static const Datapoint* getDatapoint(AddressT theAddress)
+        {return smDatapoints[theAddress];};
 
       private:
         std::string mName;

@@ -3,4 +3,7 @@
 .gcc-flags.json
 CMakeListsPrivate.txt
 .piolibdeps
-.lib
+lib
+.idea
+.travis.yml
+src/wifiCredentials.h

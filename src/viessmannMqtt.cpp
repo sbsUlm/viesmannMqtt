@@ -3,6 +3,9 @@
 #include <PubSubClient.h>
 #include "logger.h"
 #include "wifiCredentials.h"
+#include "viessmann300.h"
+
+
 
 #define mqtt_server "sbspi"
 #define ROOT_TOPIC heizung
@@ -21,6 +24,7 @@ char sSerialBuffer[BUFFER_SIZE];      //Buffer for serial interface
 int sInputStringPos = 0;              //Read position in serial buffer
 WiFiClient sEspClient;                //WiFi Client
 PubSubClient sMqttClient(sEspClient); //MQTT Client
+int sMode = -1;                       //the viessmann mode
 
 void onMqttData(char* topic, byte* payload, unsigned int length) {
   LOG_INPUT("Got MQTT Topic %s: %s",topic,payload);
@@ -99,10 +103,10 @@ void heartbeat()
 
 int switchToMode5()
 {
-  Serial.print("0x04");
+  Serial.print(Viessmann::INIT);
   int aRet=-1;
   int aTries=0;
-  while( aRet!=0x05)
+  while( aRet!=Viessmann::HERATBEAT)
   {
    LOG_DEBUG("Switchting to mode 6");
    size_t len = Serial.available();
@@ -114,7 +118,7 @@ int switchToMode5()
      if (aBytesRead)
      {
        aRet = sSerialBuffer[aBytesRead-1];
-       if (aRet == 0x05)
+       if (aRet ==Viessmann::HERATBEAT)
         return aRet;
       }
    }
@@ -149,13 +153,13 @@ void setup() {
   sMqttClient.setCallback(onMqttData);
 }
 
-int sMode = -1;
+
 void loop() {
   if (!sMqttClient.connected()) {
     reconnect();
   }
   sMqttClient.loop();
-  if (sMode!=0x05)
+  if (sMode!=Viessmann::HERATBEAT)
   {
     sMode=switchToMode5();
   }

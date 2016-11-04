@@ -20,5 +20,5 @@ void Logger::mqtt_log(unsigned short theLevel, const char* theFile, unsigned sho
     theLevel, msTextBuffer, theFile, theLine);
   if (msPubSubClient)
     msPubSubClient->publish(LOG_TOPIC, msBuffer, false);
-    DEBUG_OUT(msBuffer);
+  DEBUG_OUT(msBuffer);
 }

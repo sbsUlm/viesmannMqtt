@@ -1,7 +1,19 @@
 #ifndef LOGGER_H
 #define  LOGGER_H
+#ifdef ESP8266
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
+#else
+#include <stdio.h>
+
+class PubSubClient {
+public:
+  void publish(const char* theTopic, const char* theText, bool theRetain) {
+    
+    printf("%s: %s\n",theTopic, theText);
+  };
+};
+#endif
 #define LOG(LVL, TEXT, ...) Logger::mqtt_log(LVL, __FILE__, __LINE__,TEXT,  ##__VA_ARGS__)
 #define LOG_FATAL(TEXT,...) LOG(LOGLEVEL_FATAL, TEXT, ##__VA_ARGS__)
 #define LOG_ERROR(TEXT,...) LOG(LOGLEVEL_ERROR, TEXT, ##__VA_ARGS__)
@@ -33,6 +45,7 @@ private:
   static logLevelT msLogLevel;
   Logger();
   static char msBuffer[512];
+  static char msTextBuffer[256];
   static PubSubClient* msPubSubClient;
 
 };

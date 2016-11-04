@@ -19,13 +19,11 @@ Datapoint::Datapoint(std::string theName,
     {
       smDatapoints[mAdress] = this;
       memset(mLastValue,0,MAX_VALUE_LENGTH);
-      printf("Datapoints: %d",smDatapoints.size());
     }
 
     Datapoint::~Datapoint()
     {
       smDatapoints.erase(mAdress);
-      printf("######Datapoint removed");
     }
 
     int  Datapoint::dispatchData(const char* theBuffer,

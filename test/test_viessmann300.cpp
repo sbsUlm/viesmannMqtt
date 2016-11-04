@@ -3,6 +3,7 @@
 
 #ifdef UNIT_TEST
 
+void test_LogDebug(void);
 
 void test_createTempRequest(void)
 {
@@ -55,6 +56,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_createTempRequest);
     RUN_TEST(test_readTempResponse);
     RUN_TEST(test_readKesselResponse);
+    RUN_TEST(test_LogDebug);
     UNITY_END(); // stop unit testing
 }
 

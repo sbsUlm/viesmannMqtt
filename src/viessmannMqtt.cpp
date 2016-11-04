@@ -1,13 +1,14 @@
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-
+//#include "logger.h"
 #define wifi_ssid "bwlan"
 #define wifi_password "8594899141610047"
 #define mqtt_server "sbspi"
 #define ROOT_TOPIC heizung
 #define STATUS_TOPIC "ROOT_TOPIC/Status"
 #define HEARTBEAT_TOPIC "ROOT_TOPIC/Heartbeat"
+#define SET_LOGLEVEL_TOPIC "SetLogLevel"
 #define SSID_TOPIC "/WIFI/SSID"
 #define IP_TOPIC "/WIFI/IP"
 #define CMD_TOPIC "ROOT_TOPIC/Command"
@@ -15,6 +16,7 @@
 #define BUFFER_SIZE 1
 #define HEARTBEAT 10000 //seconds between keepalive msgs
 #define SLEEP_TIME 10
+
 char aBuffer[BUFFER_SIZE];
 char aSerialBuffer[BUFFER_SIZE];
 
@@ -26,6 +28,14 @@ PubSubClient client(espClient);
 
 void onMqttData(char* topic, byte* payload, unsigned int length) {
   memset(aBuffer,0,BUFFER_SIZE);
+  std::string aString(topic);
+  	if (aString.find(SET_LOGLEVEL_TOPIC) != std::string::npos)
+    {
+      short aLevel =  ((payload[1] << 8) | payload[0]);
+      //LOG_INPUT("Setting the loglevel to %d",aLevel);
+      //Logger::setLogLevel(aLevel);
+    }
+
 #ifdef DEBUG
   snprintf(aBuffer,BUFFER_SIZE,"Callback for %s received:", topic);
   Serial.println(aBuffer);
@@ -72,10 +82,18 @@ void reconnect() {
     if (client.connect("ESP8266Client")) {
       Serial.println("connected");
       client.subscribe(CMD_TOPIC);
+      Serial.println("1");
       snprintf(aBuffer,BUFFER_SIZE,"%s%s",STATUS_TOPIC,SSID_TOPIC);
+      Serial.println("2");
       client.publish(aBuffer,wifi_ssid,true);
+      Serial.println("3");
       snprintf(aBuffer,BUFFER_SIZE,"%s%s",STATUS_TOPIC,IP_TOPIC);
+      Serial.println("4");
       client.publish(aBuffer,WiFi.localIP().toString().c_str(),true);
+      Serial.println("5");
+      //Logger::setClient(&client);
+      Serial.println("6");
+      //LOG_INFO("Logging enabled");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -90,8 +108,10 @@ long lastMsg = 0;
 long heartbeatCounter = 0;
 void heartbeat()
 {
+
   long now = millis();
   if (now - lastMsg > HEARTBEAT) {
+    //LOG_DEBUG("sending Hearbeat");
     lastMsg = now;
     snprintf(aBuffer,BUFFER_SIZE,"Uptime %d",(heartbeatCounter*(HEARTBEAT/1000)));
     client.publish(HEARTBEAT_TOPIC, aBuffer, false);
@@ -100,19 +120,32 @@ void heartbeat()
 
 int inputStringPos = 0;
 
-int switchToMode6()
+
+int switchToMode5()
 {
   Serial.print("0x04");
-  int aRet=0;
+  int aRet=-1;
+  int aTries=0;
   while( aRet!=0x05)
   {
+    //LOG_DEBUG("Switchting to mode 6");
    size_t len = Serial.available();
    if (len>0)
    {
      if (len>BUFFER_SIZE)
       len=BUFFER_SIZE;
      int aBytesRead = Serial.readBytes(&aSerialBuffer[inputStringPos], len);
+     if (aBytesRead)
+     {
+       aRet = aSerialBuffer[aBytesRead-1];
+       if (aRet == 0x05)
+        return aRet;
+      }
    }
+    if (++aTries>=3)
+      return aRet;
+    //wait a second;
+    delay(1000);
   }
 }
 
@@ -126,7 +159,7 @@ void serialRead()
     Serial.println("Rxd Data");
     aSerialBuffer[inputStringPos+1] = '\0';
     Serial.println(aSerialBuffer);
-    client.publish(SERIAL_TOPIC, aSerialBuffer, false);
+    //LOG_INPUT(aSerialBuffer);
     memset(aSerialBuffer, 0, BUFFER_SIZE);
     inputStringPos = 0;
   }
@@ -135,17 +168,22 @@ void serialRead()
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
+  Serial.println("000");
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(onMqttData);
 }
 
-int mode = -1;
+int sMode = -1;
 void loop() {
   if (!client.connected()) {
     reconnect();
   }
   client.loop();
+/*  if (sMode!=0x05)
+  {
+    sMode=switchToMode5();
+  }*/
   heartbeat();
   serialRead();
 }

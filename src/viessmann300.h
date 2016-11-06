@@ -35,7 +35,7 @@ typedef char byte;
               AddressT theAdress);
 
       ~Datapoint();
-      
+
       int createReadRequest(char* theBuffer) const;
 
       static int dispatchData(const char* theBuffer,
@@ -44,7 +44,7 @@ typedef char byte;
 
       void setName(std::string theName) {this->mName=theName;};
       const std::string getName() const {return this->mName;};
-
+      const short getAddress() const {return this->mAdress;};
       const unsigned int getLength() const {return mLength;};
 
       void setValue(const char* theDst, byte theLen);

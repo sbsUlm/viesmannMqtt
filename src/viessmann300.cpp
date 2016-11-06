@@ -100,14 +100,16 @@ Datapoint::Datapoint(std::string theName,
       theBuffer[aPos++] = 0; //skip length
       theBuffer[aPos++] = REQUST;
       theBuffer[aPos++] = READ;
-      theBuffer[aPos+=sizeof(mAdress)] = mAdress;
+      theBuffer[aPos++] = (mAdress >> 8) & 0xFF;
+      theBuffer[aPos++] = mAdress & 0xFF;
+      theBuffer[aPos++] = mLength;
       byte aCheckSum = 0;
       for (unsigned int aCsPos=1; aCsPos<aPos;aCsPos++)
       {
           aCheckSum	+=theBuffer[aCsPos];
       }
       theBuffer[aPos] = aCheckSum;
-      theBuffer[LEN_POS] = aPos-1;
+      theBuffer[LEN_POS] = aPos-2;
       return aPos+1;
 
 

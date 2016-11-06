@@ -103,13 +103,14 @@ Datapoint::Datapoint(std::string theName,
       theBuffer[aPos++] = (mAdress >> 8) & 0xFF;
       theBuffer[aPos++] = mAdress & 0xFF;
       theBuffer[aPos++] = mLength;
+      theBuffer[LEN_POS] = aPos-2;
       byte aCheckSum = 0;
       for (unsigned int aCsPos=1; aCsPos<aPos;aCsPos++)
       {
           aCheckSum	+=theBuffer[aCsPos];
       }
       theBuffer[aPos] = aCheckSum;
-      theBuffer[LEN_POS] = aPos-2;
+
       return aPos+1;
 
 

@@ -5,9 +5,13 @@
 #include "wifiCredentials.h"
 #include "viessmann300.h"
 
+extern "C" {
+#include "user_interface.h"
+}
 
 
-#define mqtt_server "sbspi"
+//#define mqtt_server "sbspi"
+#define mqtt_server "zyklon"
 #define ROOT_TOPIC heizung
 #define STATUS_TOPIC "ROOT_TOPIC/Status"
 #define HEARTBEAT_TOPIC "ROOT_TOPIC/Heartbeat"
@@ -21,10 +25,12 @@
 
 char sMqttBuffer[BUFFER_SIZE];        //Buffer for MQTT msgs
 char sSerialBuffer[BUFFER_SIZE];      //Buffer for serial interface
+char sSerialOutBuffer[BUFFER_SIZE];      //Buffer for serial interface
 int sInputStringPos = 0;              //Read position in serial buffer
 WiFiClient sEspClient;                //WiFi Client
 PubSubClient sMqttClient(sEspClient); //MQTT Client
 int sMode = -1;                       //the viessmann mode
+const Viessmann::Datapoint* sDataPoint;     //the Datapoint ptr
 
 void onMqttData(char* topic, byte* payload, unsigned int length) {
   LOG_INPUT("Got MQTT Topic %s: %s",topic,payload);
@@ -67,7 +73,8 @@ void reconnect() {
     // Attempt to connect
     // If you do not want to use a username and password, change next line to
     // if (sMqttClient.connect("ESP8266Client")) {
-    if (sMqttClient.connect("ESP8266Client")) {
+    //if (sMqttClient.connect("ESP8266Client")) {
+    if (sMqttClient.connect("ESP8266Client","testuser","testpw")) {
       Serial.println("connected");
       sMqttClient.subscribe(CMD_TOPIC);
       snprintf(sMqttBuffer,BUFFER_SIZE,"%s%s",STATUS_TOPIC,SSID_TOPIC);
@@ -86,6 +93,23 @@ void reconnect() {
   }
 }
 
+
+void requestTemp()
+{
+  sDataPoint = Viessmann::Datapoint::getDatapoint(0x5525);
+  if (sDataPoint==0)
+  {
+    LOG_ERROR("invalid Datapoint");
+    return;
+  }
+  LOG_DEBUG("Got Datapoiont Name: %s",sDataPoint->getName().c_str());
+  LOG_DEBUG("Got Datapoiont Address: %d",sDataPoint->getAddress());
+  int aLen=sDataPoint->createReadRequest(sSerialOutBuffer);
+  LOG_DEBUG("Rxd a Request with %d bytes",aLen);
+  Serial.write(sSerialOutBuffer,aLen);
+}
+
+
 long lastMsg = 0;
 long heartbeatCounter = 0;
 void heartbeat()
@@ -95,8 +119,17 @@ void heartbeat()
   if (now - lastMsg > HEARTBEAT) {
     LOG_DEBUG("sending Hearbeat");
     lastMsg = now;
-    snprintf(sMqttBuffer,BUFFER_SIZE,"Uptime %d",(heartbeatCounter*(HEARTBEAT/1000)));
+    snprintf(sMqttBuffer,BUFFER_SIZE,"Uptime %d",(++heartbeatCounter*(HEARTBEAT/1000)));
+
     sMqttClient.publish(HEARTBEAT_TOPIC, sMqttBuffer, false);
+    long aLong=system_get_free_heap_size();
+    snprintf(sMqttBuffer,BUFFER_SIZE,"Heapsize %d",aLong );
+    sMqttClient.publish(HEARTBEAT_TOPIC, sMqttBuffer, false);
+    snprintf(sMqttBuffer,BUFFER_SIZE,"StringPos %d",sInputStringPos );
+    sMqttClient.publish(HEARTBEAT_TOPIC, sMqttBuffer, false);
+
+    LOG_DEBUG("requesting temp");
+    requestTemp();
     }
 }
 
@@ -115,9 +148,11 @@ int switchToMode5()
      if (len>BUFFER_SIZE)
       len=BUFFER_SIZE;
      int aBytesRead = Serial.readBytes(&sSerialBuffer[sInputStringPos], len);
+     LOG_INPUT("Rxd %d bytes",aBytesRead);
      if (aBytesRead)
      {
        aRet = sSerialBuffer[aBytesRead-1];
+       LOG_INPUT("Last byte is 0x%x",aRet);
        if (aRet ==Viessmann::HERATBEAT)
         return aRet;
       }
@@ -129,10 +164,13 @@ int switchToMode5()
   }
 }
 
+
 void serialRead()
 {
   size_t len = Serial.available();
   if(len){
+    Serial.print("Got bytes:");
+    if (len>sizeof(sSerialBuffer)) len=sizeof(sSerialBuffer);
     sInputStringPos+= Serial.readBytes(&sSerialBuffer[sInputStringPos], len);
   }
   if (sInputStringPos > 10) {
@@ -151,6 +189,9 @@ void setup() {
   setup_wifi();
   sMqttClient.setServer(mqtt_server, 1883);
   sMqttClient.setCallback(onMqttData);
+
+  Viessmann::Datapoint* aNewDataPoint = new Viessmann::Datapoint("TemperatureOutside",false,2,-60,100,0x5525);
+  aNewDataPoint = new Viessmann::Datapoint("Kesseltemperatur",false,2,0,150,0x0810);
 }
 
 

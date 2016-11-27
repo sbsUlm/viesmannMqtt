@@ -8,8 +8,9 @@ void test_createTempRequest(void)
   const Viessmann::Datapoint* aDataPoint;//("Temp",false,2,-60,100,0x5525);
   aDataPoint = Viessmann::Datapoint::getDatapoint(0x5525);
   char aChar[256];
-  aDataPoint->createReadRequest(aChar);
+  int len = aDataPoint->createReadRequest(aChar);
   char aExp[8] = {0x41, 0x05, 0x00, 0x01, 0x55, 0x25, 0x02, 0x82};
+  TEST_ASSERT_EQUAL(8, len);
   TEST_ASSERT_EQUAL_STRING_LEN(aExp, aChar, 8);
 }
 

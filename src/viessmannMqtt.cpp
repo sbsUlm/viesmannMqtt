@@ -12,11 +12,12 @@ extern "C" {
 }
 
 
-//#define mqtt_server "sbspi"
-#define mqtt_server "zyklon"
-#define ROOT_TOPIC heizung
-#define STATUS_TOPIC "ROOT_TOPIC/Status"
-#define HEARTBEAT_TOPIC "ROOT_TOPIC/Heartbeat"
+#define mqtt_server "sbspi"
+//#define mqtt_server "zyklon"
+
+#define STATUS_TOPIC "heizung/Status"
+#define HEARTBEAT_TOPIC "heizung/Heartbeat"
+#define DATAPOINT_TOPIC "heizung/DataPoint"
 #define SET_LOGLEVEL_TOPIC "SetLogLevel"
 #define SSID_TOPIC "/WIFI/SSID"
 #define IP_TOPIC "/WIFI/IP"
@@ -95,20 +96,34 @@ void reconnect() {
   }
 }
 
+void publishDataPoints()
+{
+  Viessmann::Datapoint::DatapointIteratorT aIt = Viessmann::Datapoint::getDatapointIt();
+  char aChar[8];
+  for (aIt;aIt!=Viessmann::Datapoint::getEndIt();aIt++)
+  {
+    snprintf(sMqttBuffer,BUFFER_SIZE,"%s/%s",DATAPOINT_TOPIC,aIt->second->getName().c_str());
+    snprintf(aChar,8,"%d",aIt->second->getValueAsShort());
+    sMqttClient.publish(sMqttBuffer,aChar,true);
+  }
+}
 
 void requestTemp()
 {
-  sDataPoint = Viessmann::Datapoint::getDatapoint(0x5525);
+  sDataPoint = Viessmann::Datapoint::getIterator()->second;
   if (sDataPoint==0)
   {
     LOG_ERROR("invalid Datapoint");
     return;
   }
-  LOG_DEBUG("Got Datapoiont Name: %s",sDataPoint->getName().c_str());
-  LOG_DEBUG("Got Datapoiont Address: %d",sDataPoint->getAddress());
+  LOG_INFO("Request Datapoiont Name: %s",sDataPoint->getName().c_str());
+  LOG_DEBUG("Request Datapoiont Address: %d",sDataPoint->getAddress());
   int aLen=sDataPoint->createReadRequest(sSerialOutBuffer);
-  LOG_DEBUG("Rxd a Request with %d bytes",aLen);
+  LOG_DEBUG("Txing a Request with %d bytes",aLen);
   Serial.write(sSerialOutBuffer,aLen);
+  for (int ii=0;ii<aLen;ii++)
+    LOG_OUTPUT("Sent 0x%1x",(sSerialOutBuffer[ii]));
+  Viessmann::Datapoint::nextDatapoint();
 }
 
 
@@ -132,6 +147,7 @@ void heartbeat()
 
     LOG_DEBUG("requesting temp");
     requestTemp();
+    publishDataPoints();
     }
 }
 
@@ -156,7 +172,13 @@ int switchToMode5()
        aRet = sSerialBuffer[aBytesRead-1];
        LOG_INPUT("Last byte is 0x%x",aRet);
        if (aRet ==Viessmann::HERATBEAT)
+       {
+        sSerialOutBuffer[0] = Viessmann::COMM_INIT_1;
+        sSerialOutBuffer[1] = Viessmann::COMM_INIT_2;
+        sSerialOutBuffer[2] = Viessmann::COMM_INIT_3;
+        Serial.write(sSerialOutBuffer,3);
         return aRet;
+        }
       }
    }
     if (++aTries>=3)
@@ -171,17 +193,44 @@ void serialRead()
 {
   size_t len = Serial.available();
   if(len){
-    Serial.print("Got bytes:");
+
     if (len>sizeof(sSerialBuffer)) len=sizeof(sSerialBuffer);
     sInputStringPos+= Serial.readBytes(&sSerialBuffer[sInputStringPos], len);
-  }
-  if (sInputStringPos > 10) {
-    Serial.println("Rxd Data");
-    sSerialBuffer[sInputStringPos+1] = '\0';
-    Serial.println(sSerialBuffer);
-    LOG_INPUT(sSerialBuffer);
-    memset(sSerialBuffer, 0, BUFFER_SIZE);
-    sInputStringPos = 0;
+
+    LOG_INPUT("Start of in Dump################");
+    for (int ii=0;ii<sInputStringPos;ii++)
+      LOG_INPUT("%#1x",(sSerialBuffer[ii]));
+    LOG_INPUT("Stop of in Dump-################");
+
+
+    if (len ==1 && sSerialBuffer[0]==Viessmann::HERATBEAT)
+    {
+     sSerialOutBuffer[0] = Viessmann::COMM_INIT_1;
+     sSerialOutBuffer[1] = Viessmann::COMM_INIT_2;
+     sSerialOutBuffer[2] = Viessmann::COMM_INIT_3;
+     Serial.write(sSerialOutBuffer,3);
+     LOG_DEBUG("Sent COMM_INIT");
+     sInputStringPos = 0;
+    }
+    else
+    {
+      Viessmann::Datapoint* aDataPoint=0;
+      unsigned int aRet = Viessmann::Datapoint::dispatchData(sSerialBuffer,sInputStringPos,aDataPoint);
+      if (aDataPoint)
+      {
+        LOG_DEBUG("Got: %s",aDataPoint->getName().c_str());
+        LOG_DEBUG("Short Val is %d",aDataPoint->getValueAsShort());
+        sInputStringPos = 0;
+      }
+      else
+      {
+        LOG_ERROR("Did not understand data (%d byte) ret Val is %d",sInputStringPos,aRet);
+      }
+    }
+
+
+    if (sInputStringPos==BUFFER_SIZE)
+      sInputStringPos=0;
   }
 }
 
@@ -215,14 +264,16 @@ void setupOTA() {
 
 void setup() {
   // put your setup code here, to run once:
-  Serial.begin(115200);
+  Serial.begin(4800,SERIAL_8E2);
   setup_wifi();
   setupOTA();
+
   sMqttClient.setServer(mqtt_server, 1883);
   sMqttClient.setCallback(onMqttData);
 
   Viessmann::Datapoint* aNewDataPoint = new Viessmann::Datapoint("TemperatureOutside",false,2,-60,100,0x5525);
   aNewDataPoint = new Viessmann::Datapoint("Kesseltemperatur",false,2,0,150,0x0810);
+  Viessmann::Datapoint::resetIterator();
 }
 
 void loop() {

@@ -10,7 +10,9 @@ namespace Viessmann
 typedef char byte;
   static const byte HERATBEAT = 0x05;
   static const byte INIT = 0x04;
-  static const int COMM_INIT = 0x160000;
+  static const byte COMM_INIT_1 = 0x16;
+  static const byte COMM_INIT_2 = 0x00;
+  static const byte COMM_INIT_3 = 0x00;
   static const byte START_BYTE = 0x41;
   static const byte REQUST = 0x00;
   static const byte RESPONSE = 0x01;
@@ -26,6 +28,7 @@ typedef char byte;
     public:
 
       typedef unsigned short AddressT;
+      typedef std::map<AddressT, Datapoint*>::iterator DatapointIteratorT;
 
     Datapoint(std::string theName,
               bool theWrite,
@@ -54,6 +57,20 @@ typedef char byte;
       static const Datapoint* getDatapoint(AddressT theAddress)
         {return smDatapoints[theAddress];};
 
+      static DatapointIteratorT getIterator()
+        {return smDataPointInterator;};
+
+      static void resetIterator()
+        {smDataPointInterator = smDatapoints.begin();};
+
+      static DatapointIteratorT getDatapointIt()
+        {return smDatapoints.begin();};
+
+        static DatapointIteratorT getEndIt()
+          {return smDatapoints.end();};
+
+      static void nextDatapoint();
+
       private:
         std::string mName;
         bool mWrite;
@@ -63,6 +80,7 @@ typedef char byte;
         AddressT mAdress;
         static std::map<AddressT, Datapoint*> smDatapoints;
         char mLastValue[MAX_VALUE_LENGTH];
+        static DatapointIteratorT smDataPointInterator;
   };
 
 

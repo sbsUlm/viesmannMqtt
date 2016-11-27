@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <cstdarg>
 #include "debugOut.h"
-unsigned short Logger::msLogLevel = (LOGLEVEL_FATAL | LOGLEVEL_ERROR | LOGLEVEL_INFO | LOGLEVEL_WARNING);
+unsigned short Logger::msLogLevel = (LOGLEVEL_FATAL | LOGLEVEL_ERROR | LOGLEVEL_INFO | LOGLEVEL_WARNING );
 char Logger::msBuffer[512];
 char Logger::msTextBuffer[256];
 PubSubClient* Logger::msPubSubClient=0;

@@ -1,8 +1,10 @@
 #include "viessmann300.h"
+#include "logger.h"
 #include <stdio.h>
 using namespace Viessmann;
 
 std::map<Datapoint::AddressT, Datapoint*> Datapoint::smDatapoints;
+Datapoint::DatapointIteratorT Datapoint::smDataPointInterator;
 
 Datapoint::Datapoint(std::string theName,
           bool theWrite,
@@ -79,11 +81,13 @@ Datapoint::Datapoint(std::string theName,
 
     void Datapoint::setValue(const char* theDst, byte theLen)
     {
+      LOG_DEBUG("Setting value with %d bytes", theLen);
       if (theLen>MAX_VALUE_LENGTH)
         theLen=MAX_VALUE_LENGTH;
       //memcpy(mLastValue,theDst,theLen);
       for (int i=0;i<theLen;i++)
       {
+        LOG_DEBUG("Byte %d is %x", i,theDst[i]);
         mLastValue[i] = theDst[i];
       }
     }
@@ -91,6 +95,13 @@ Datapoint::Datapoint(std::string theName,
     const unsigned short Datapoint::getValueAsShort()
     {
        return *((short*)mLastValue);
+    };
+
+    void Datapoint::nextDatapoint()
+    {
+      smDataPointInterator++;
+      if (smDataPointInterator==smDatapoints.end())
+        resetIterator();
     };
 
     int Datapoint::createReadRequest(char* theBuffer) const

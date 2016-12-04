@@ -99,11 +99,24 @@ void reconnect() {
 void publishDataPoints()
 {
   Viessmann::Datapoint::DatapointIteratorT aIt = Viessmann::Datapoint::getDatapointIt();
-  char aChar[8];
+  char aChar[10];
   for (aIt;aIt!=Viessmann::Datapoint::getEndIt();aIt++)
   {
     snprintf(sMqttBuffer,BUFFER_SIZE,"%s/%s",DATAPOINT_TOPIC,aIt->second->getName().c_str());
-    snprintf(aChar,8,"%d",aIt->second->getValueAsShort());
+    switch  (aIt->second->getLength())
+    {
+      case 1:
+        snprintf(aChar,10,"%d",aIt->second->getValueAsByte());
+        break;
+      case 2:
+        snprintf(aChar,10,"%d",aIt->second->getValueAsShort());
+        break;
+      case 4:
+        snprintf(aChar,10,"%d",aIt->second->getValueAsInt());
+        break;
+      default:
+        snprintf(aChar,10,"%d","Error");
+    }
     sMqttClient.publish(sMqttBuffer,aChar,true);
   }
 }
@@ -197,7 +210,7 @@ void serialRead()
     if (len>sizeof(sSerialBuffer)) len=sizeof(sSerialBuffer);
     sInputStringPos+= Serial.readBytes(&sSerialBuffer[sInputStringPos], len);
 
-    LOG_INPUT("Start of in Dump################");
+      LOG_INPUT("Start of in Dump################");
     for (int ii=0;ii<sInputStringPos;ii++)
       LOG_INPUT("%#1x",(sSerialBuffer[ii]));
     LOG_INPUT("Stop of in Dump-################");
@@ -219,12 +232,23 @@ void serialRead()
       if (aDataPoint)
       {
         LOG_DEBUG("Got: %s",aDataPoint->getName().c_str());
-        LOG_DEBUG("Short Val is %d",aDataPoint->getValueAsShort());
+        switch (aDataPoint->getLength())
+        {
+          case 1:
+            LOG_DEBUG("Byte Val is %d",aDataPoint->getValueAsByte());
+            break;
+          case 2:
+            LOG_DEBUG("Short Val is %d",aDataPoint->getValueAsShort());
+            break;
+          case 4:
+            LOG_DEBUG("Int Val is %d",aDataPoint->getValueAsInt());
+            break;
+        }
         sInputStringPos = 0;
       }
       else
       {
-        LOG_ERROR("Did not understand data (%d byte) ret Val is %d",sInputStringPos,aRet);
+        //LOG_ERROR("Did not understand data (%d byte) ret Val is %d",sInputStringPos,aRet);
       }
     }
 
@@ -267,13 +291,19 @@ void setup() {
   Serial.begin(4800,SERIAL_8E2);
   setup_wifi();
   setupOTA();
-
   sMqttClient.setServer(mqtt_server, 1883);
   sMqttClient.setCallback(onMqttData);
 
-  Viessmann::Datapoint* aNewDataPoint = new Viessmann::Datapoint("TemperatureOutside",false,2,-60,100,0x5525);
-  aNewDataPoint = new Viessmann::Datapoint("Kesseltemperatur",false,2,0,150,0x0810);
+  Viessmann::Datapoint* aNewDataPoint = new Viessmann::Datapoint("TemperatureOutside",false,2,-60,100,0,0x5525);
+  aNewDataPoint = new Viessmann::Datapoint("Kesseltemperatur",false,2,0,150,0,0x0810);
+  aNewDataPoint = new Viessmann::Datapoint("BrennerStunden",false,4,0,1150000,0,0x08A7);
+  aNewDataPoint = new Viessmann::Datapoint("Warmwassertemperatur",false,2,0,150,0,0x0812);
+  aNewDataPoint = new Viessmann::Datapoint("Brennerstarts",false,4,0,1150000,0,0x088A);
+  /*aNewDataPoint = new Viessmann::Datapoint("RaumSollNorm",false,1,0,37,0,0x2306);
+  aNewDataPoint = new Viessmann::Datapoint("RaumSollRedu",false,1,0,37,0,0x2307);
+  aNewDataPoint = new Viessmann::Datapoint("WarmwasserSoll",false,1,0,60,0,0x6300);*/
   Viessmann::Datapoint::resetIterator();
+
 }
 
 void loop() {

@@ -21,7 +21,7 @@ typedef char byte;
   static const byte WRITE = 0x02;
   static const byte CALL = 0x07;
   static const int LEN_POS = 1;
-  static const int MAX_VALUE_LENGTH = 4;
+  static const int MAX_VALUE_LENGTH = 8;
 
   class Datapoint
   {
@@ -35,6 +35,7 @@ typedef char byte;
               unsigned int theLength,
               int theMinValue,
               int theMaxValue,
+              int theDefaultValue,
               AddressT theAdress);
 
       ~Datapoint();
@@ -52,7 +53,9 @@ typedef char byte;
 
       void setValue(const char* theDst, byte theLen);
 
-      const unsigned short getValueAsShort();
+      const unsigned short getValueAsByte() const;
+      const unsigned short getValueAsShort() const;
+      const unsigned int getValueAsInt() const;
 
       static const Datapoint* getDatapoint(AddressT theAddress)
         {return smDatapoints[theAddress];};

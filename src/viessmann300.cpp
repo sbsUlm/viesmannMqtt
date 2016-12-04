@@ -11,16 +11,24 @@ Datapoint::Datapoint(std::string theName,
           unsigned int theLength,
           int theMinValue,
           int theMaxValue,
+          int theDefaultValue,
           AddressT theAdress):
     mName(theName),
     mWrite(theWrite),
     mLength(theLength),
     mMinValue(theMinValue),
     mMaxValue(theMaxValue),
+
     mAdress(theAdress)
     {
-      smDatapoints[mAdress] = this;
       memset(mLastValue,0,MAX_VALUE_LENGTH);
+      (*(int*)mLastValue)=theDefaultValue;
+      mLastValue[0] = theDefaultValue       & 0xFF;
+      mLastValue[1] = (theDefaultValue>>8)  & 0xFF;
+      mLastValue[2] = (theDefaultValue>>16) & 0xFF;
+      mLastValue[3] = (theDefaultValue>>24) & 0xFF;
+            printf("in dp ctor %d\n",__LINE__);
+      smDatapoints[mAdress] = this;
     }
 
     Datapoint::~Datapoint()
@@ -60,20 +68,22 @@ Datapoint::Datapoint(std::string theName,
         byte aLength = theBuffer[aPos++];
         if (smDatapoints[aAddress] ==0)
         {
-          printf("Adress does not exist\n");
+          LOG_ERROR("Adress does not exist\n");
           return aPos;
         }
-
+        LOG_DEBUG("Adress ist 0x%x",aAddress);
+        LOG_DEBUG("Datapoint is %s",smDatapoints[aAddress]->getName().c_str());
         smDatapoints[aAddress]->setValue(&theBuffer[aPos],aLength);
         aPos+=aLength;
         if (aLength!=smDatapoints[aAddress]->getLength())
         {
-          printf("Len ist not machting %d != %d\n",aLength,smDatapoints[aAddress]->getLength());
+          LOG_ERROR("Len ist not machting %d != %d\n",aLength,smDatapoints[aAddress]->getLength());
           theDatapoint = 0;
           return aPos;
         }
         byte aChecksum = theBuffer[aPos++];
         theDatapoint = smDatapoints[aAddress];
+        LOG_DEBUG("Value is %d",theDatapoint->getValueAsInt());
         return aPos;
       }
       return aConsumed;
@@ -81,20 +91,38 @@ Datapoint::Datapoint(std::string theName,
 
     void Datapoint::setValue(const char* theDst, byte theLen)
     {
-      LOG_DEBUG("Setting value with %d bytes", theLen);
+      LOG_INPUT("Setting value of %s with %d bytes",this->getName().c_str(), theLen);
       if (theLen>MAX_VALUE_LENGTH)
         theLen=MAX_VALUE_LENGTH;
       //memcpy(mLastValue,theDst,theLen);
       for (int i=0;i<theLen;i++)
       {
-        LOG_DEBUG("Byte %d is %x", i,theDst[i]);
+        LOG_INPUT("Byte %d is 0x%x", i,theDst[i]);
         mLastValue[i] = theDst[i];
       }
+      LOG_INPUT("Value of %s is %d",this->getName().c_str(),this->getValueAsInt());
     }
 
-    const unsigned short Datapoint::getValueAsShort()
+    const unsigned short Datapoint::getValueAsShort() const
     {
        return *((short*)mLastValue);
+    };
+
+    const unsigned short Datapoint::getValueAsByte() const
+    {
+       unsigned short aShort = 0;
+       aShort = mLastValue[0];
+       return aShort;
+    };
+
+    const unsigned int Datapoint::getValueAsInt() const
+    {
+       unsigned int aInt = 0;
+       aInt |= ( mLastValue[0] & 0xFF);
+       aInt |= ((mLastValue[1] & 0xFF) <<8);
+       aInt |= ((mLastValue[2] & 0xFF) <<16);
+       aInt |= ((mLastValue[3] & 0xFF) <<24);
+       return aInt;
     };
 
     void Datapoint::nextDatapoint()
